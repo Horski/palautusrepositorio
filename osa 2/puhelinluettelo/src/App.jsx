@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import axios from 'axios'
 
 const Filter = ({ showFilter, handleFilterChange }) => {
   return (
@@ -46,6 +47,17 @@ const App = () => {
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
   const [showFilter, setShowFilter] = useState('')
+
+  // Haetaan palvelimelta henkilöt axios kutsulla
+  useEffect(() => {
+    axios
+      .get('http://localhost:3001/persons')
+      .then(response => {
+        setPersons(response.data)
+      })
+
+  // Annetaan toisena parametrina tyhjä taulukko, jolloin efekti toteutetaan vain kerran
+  }, [])
 
   const addPerson = (event) => {
     // Estetään sivun uudelleenlataaminen
