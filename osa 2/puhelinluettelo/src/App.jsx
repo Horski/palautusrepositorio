@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import personService from './services/persons'
+
 
 const Filter = ({ showFilter, handleFilterChange }) => {
   return (
@@ -34,10 +35,36 @@ const PersonForm = ({ addPerson, newName, handleNameChange, newNumber, handleNum
   )
 }
 
-const Persons = ({ personsToShow }) => {
+// Luodaan erillinen nappikomponentti, jonka vastuu on poistaa henkilö
+const DeletePerson = ({ id, name, setPersons, persons }) => {
+  const handleClick = () => {
+    // Kysytään käyttäjältä varmistus halutaanko oikeasti poistaa
+    if (confirm(`Delete ${name} ?`)) {
+      personService
+        .remove(id)
+        .then(() => {
+          // Poiston jälkeen filteröidään henkilölista seuraavasti: kaikki muut paitsi kyseinen id -henkilöt näytetään
+          setPersons(persons.filter(person => person.id !== id))
+        })
+        // Jos tapahtuu virhe, niin näytetään error ikkuna käyttäjälle
+        .catch(error => {
+          console.error('Error happened:', error)
+        })
+    }
+  }
+
+  return (
+    <button onClick={handleClick}>delete</button>
+  )
+}
+
+const Persons = ({ personsToShow, setPersons, persons }) => {
   return (
     personsToShow.map(person =>
-      <div key={person.name}>{person.name} {person.number}</div>
+      <div key={person.id}>
+        {person.name} {person.number} 
+        <DeletePerson id={person.id} name={person.name} setPersons={setPersons} persons={persons}/>
+      </div>
     )
   )
 }
@@ -50,8 +77,8 @@ const App = () => {
 
   // Haetaan palvelimelta henkilöt axios kutsulla
   useEffect(() => {
-    axios
-      .get('http://localhost:3001/persons')
+    personService
+      .getAll()
       .then(response => {
         setPersons(response.data)
       })
@@ -73,15 +100,47 @@ const App = () => {
     if (!isPersonAlready()) {
       const person = {
         name: newName,
-        number: newNumber
+        number: newNumber,
+        id: String(persons.length + 1),
       }
-  
-      setPersons(persons.concat(person))
-      setNewName('')
-      setNewNumber('')
+      
+      // Lisätään palvelimelle juuri luotu henkilö
+      personService
+        .create(person)
+        .then(response => {
+          setPersons(persons.concat(person))
+          setNewName('')
+          setNewNumber('')
+        })
+        .catch(error => {
+          console.error('Failed to add the person:', error)
+         })
+      
       // Jos taas nimi löytyy, kutsutaan alert-metodia ja ilmoitetaan, että se löytyy jo listalta
     } else {
-      alert(`${newName} is already added to phonebook`)
+       if (confirm(`${newName} is already added to phonebook, replace the old number with a new one?`)) {
+        // Etsitään käyttäjä listalta
+        const existingPerson = persons.find((person) => person.name === newName)
+
+        // Luodaan uusi olio, jossa on muuten samat tiedot kuin existingPerson-oliossa, mutta numero on päivitetty
+        const updatedPerson = {...existingPerson, number: newNumber}
+        
+        personService
+       .update(updatedPerson.id, updatedPerson)
+       .then(response => {
+        // Päivitetään persons-lista, jossa korvataan vanha henkilö uudella
+        const newPersons = persons.map((person) => {
+          return person.id !== updatedPerson.id ? person : response.data
+        })
+
+        setPersons(newPersons)
+        setNewName('')
+        setNewNumber('')
+       })
+       .catch(error => {
+        console.error('Failed to update the persons number:', error)
+       })
+       }
     }
   }  
   
@@ -114,7 +173,8 @@ const App = () => {
       
       <h3>Numbers</h3>
 
-      <Persons personsToShow={personsToShow}/>
+      {/* Välitetään Persons-moduulille tarvittavat propsit, DeletePerson tarvitsee persons-listan ja setPersons-tilakäsittelijän */}
+      <Persons personsToShow={personsToShow} setPersons={setPersons} persons={persons}/>
     </div>
   )
 
