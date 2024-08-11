@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react'
 import personService from './services/persons'
+import './index.css'
 
+const Notification = ({ message, type }) => {
+  if (message === null) {
+    return null
+  }
+
+  return (
+    <div className={type}>
+    {message}
+    </div>
+  )
+  
+  
+  
+}
 
 const Filter = ({ showFilter, handleFilterChange }) => {
   return (
@@ -36,7 +51,7 @@ const PersonForm = ({ addPerson, newName, handleNameChange, newNumber, handleNum
 }
 
 // Luodaan erillinen nappikomponentti, jonka vastuu on poistaa henkilö
-const DeletePerson = ({ id, name, setPersons, persons }) => {
+const DeletePerson = ({ id, name, setPersons, persons, setErrorMessage, setMessageType }) => {
   const handleClick = () => {
     // Kysytään käyttäjältä varmistus halutaanko oikeasti poistaa
     if (confirm(`Delete ${name} ?`)) {
@@ -45,9 +60,18 @@ const DeletePerson = ({ id, name, setPersons, persons }) => {
         .then(() => {
           // Poiston jälkeen filteröidään henkilölista seuraavasti: kaikki muut paitsi kyseinen id -henkilöt näytetään
           setPersons(persons.filter(person => person.id !== id))
+          // Muokataan notification näyttämään onnistunut poisto
+          setMessageType('pass')
+          setErrorMessage(`Removed ${name}`)
+
+          setTimeout(() => {
+            setErrorMessage(null)
+          }, 2000)
         })
         // Jos tapahtuu virhe, niin näytetään error ikkuna käyttäjälle
         .catch(error => {
+          setMessageType('error')
+          setErrorMessage(`Information of ${name} has already been removed from server`)
           console.error('Error happened:', error)
         })
     }
@@ -58,12 +82,19 @@ const DeletePerson = ({ id, name, setPersons, persons }) => {
   )
 }
 
-const Persons = ({ personsToShow, setPersons, persons }) => {
+const Persons = ({ personsToShow, setPersons, persons, setErrorMessage, setMessageType }) => {
   return (
     personsToShow.map(person =>
       <div key={person.id}>
         {person.name} {person.number} 
-        <DeletePerson id={person.id} name={person.name} setPersons={setPersons} persons={persons}/>
+        <DeletePerson
+         id={person.id} 
+         name={person.name} 
+         setPersons={setPersons} 
+         persons={persons} 
+         setErrorMessage={setErrorMessage}
+         setMessageType={setMessageType} 
+         />
       </div>
     )
   )
@@ -74,6 +105,8 @@ const App = () => {
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
   const [showFilter, setShowFilter] = useState('')
+  const [errorMessage, setErrorMessage] = useState()
+  const [messageType, setMessageType] = useState()
 
   // Haetaan palvelimelta henkilöt axios kutsulla
   useEffect(() => {
@@ -111,8 +144,15 @@ const App = () => {
           setPersons(persons.concat(person))
           setNewName('')
           setNewNumber('')
+          // Muokataan notification näyttämään onnistunut lisäys
+          setMessageType('pass')
+          setErrorMessage(`Added ${person.name}`)
+          setTimeout(() => {
+            setErrorMessage(null)
+          }, 2000)
         })
         .catch(error => {
+          setMessageType('error')
           console.error('Failed to add the person:', error)
          })
       
@@ -136,9 +176,19 @@ const App = () => {
         setPersons(newPersons)
         setNewName('')
         setNewNumber('')
+        // Muokataan notification näyttämään onnistunut lisäys
+        setMessageType('pass')
+        setErrorMessage(`Updated the number of ${updatedPerson.name}`)
+        setTimeout(() => {
+          setErrorMessage(null)
+        }, 2000)  
        })
        .catch(error => {
-        console.error('Failed to update the persons number:', error)
+        setMessageType('error')
+        setErrorMessage(`Information of ${updatedPerson.name} has already been removed from the server`)
+        setTimeout(() => {
+          setErrorMessage(null)
+        }, 2000)  
        })
        }
     }
@@ -165,6 +215,8 @@ const App = () => {
     <div>
       <h2>Phonebook</h2>
 
+      <Notification message={errorMessage} type={messageType}/>
+
       <Filter showFilter={showFilter} handleFilterChange={handleFilterChange}/>
       
       <h3>add a new</h3>
@@ -174,7 +226,7 @@ const App = () => {
       <h3>Numbers</h3>
 
       {/* Välitetään Persons-moduulille tarvittavat propsit, DeletePerson tarvitsee persons-listan ja setPersons-tilakäsittelijän */}
-      <Persons personsToShow={personsToShow} setPersons={setPersons} persons={persons}/>
+      <Persons personsToShow={personsToShow} setPersons={setPersons} persons={persons} setErrorMessage={setErrorMessage} setMessageType={setMessageType}/>
     </div>
   )
 
